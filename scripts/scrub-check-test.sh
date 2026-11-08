@@ -10,7 +10,7 @@ fails=0
 
 repo() { # repo <dir>: a git repository holding the script and one clean file
   mkdir -p "$1/scripts"; cp "$here/scrub-check.sh" "$1/scripts/"
-  git -C "$1" init -q; git -C "$1" config user.email test@example.invalid; git -C "$1" config user.name test
+  git -C "$1" init -q; git -C "$1" config user.email 1+test@users.noreply.github.com; git -C "$1" config user.name test
   echo "clean text" > "$1/README.md"; git -C "$1" add -A; git -C "$1" commit -qm init
 }
 run() { # run <dir> [args]: sets out and rc
@@ -94,6 +94,29 @@ git -C "$tmp/author" -c user.email="$term@example.invalid" commit -q --allow-emp
 run "$tmp/author" --history
 check "--history fails on a name in an author's email" '[[ $rc != 0 && $out == *"Author: test <[internal]@example.invalid>"* ]]'
 check "the author failure does not print the name" no_term
+
+run "$tmp/clean" --history
+check "--history passes when every author and committer uses a GitHub noreply address" '[[ $rc == 0 ]]'
+
+repo "$tmp/webflow"
+GIT_COMMITTER_NAME=GitHub GIT_COMMITTER_EMAIL=noreply@github.com git -C "$tmp/webflow" commit -q --allow-empty -m merge
+run "$tmp/webflow" --history
+check "... and GitHub's own committer address for web merges passes too" '[[ $rc == 0 ]]'
+
+person=someone@example.invalid
+repo "$tmp/personal"
+git -C "$tmp/personal" -c user.email="$person" commit -q --allow-empty -m change
+c=$(git -C "$tmp/personal" rev-parse --short HEAD)
+run "$tmp/personal" --history
+check "--history fails on an author email that is not a GitHub noreply address, naming the commit" \
+  '[[ $rc != 0 && $out == *noreply* && $out == *"commit $c"* ]]'
+check "... and does not print the address" '[[ $out != *"$person"* ]]'
+
+repo "$tmp/committer"
+GIT_COMMITTER_EMAIL=$person git -C "$tmp/committer" commit -q --allow-empty -m change
+c=$(git -C "$tmp/committer" rev-parse --short HEAD)
+run "$tmp/committer" --history
+check "--history fails on a committer email that is not a GitHub noreply address" '[[ $rc != 0 && $out == *"commit $c"* ]]'
 
 repo "$tmp/pathonly"
 echo "clean text" > "$tmp/pathonly/$term.txt"; git -C "$tmp/pathonly" add -A; git -C "$tmp/pathonly" commit -qm add
