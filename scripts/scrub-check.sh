@@ -134,7 +134,7 @@ if (( history )); then
         e = tolower(substr($0, length($1) + 2))
         if (e !~ /^([0-9]+\+)?[a-z0-9-]+(\[bot\])?@users\.noreply\.github\.com$/ && e != "noreply@github.com") print "commit " $1
       }' | sort -u | head -10)
-    [[ -n $hits ]] && { bad "author or committer email that is not a GitHub noreply address (turn on \"Keep my email addresses private\" in GitHub's email settings)"; printf '%s\n' "$hits" | show; }
+    [[ -n $hits ]] && { bad "author or committer email that is not a GitHub noreply address (set git's user.email to the noreply address in your GitHub email settings, and rewrite these commits)"; printf '%s\n' "$hits" | show; }
   fi
 fi
 

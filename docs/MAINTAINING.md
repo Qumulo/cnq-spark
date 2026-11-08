@@ -10,7 +10,7 @@ Only the files that a person deploying Spark needs: the deployment template, the
 
 The internal names it looks for are not in this repository, because listing them here would publish them. They are an extended regular expression in the repository secret `SCRUB_INTERNAL_RE`, which CI passes to the check. To run the check yourself, get the expression from a code owner and set it first: `SCRUB_INTERNAL_RE='...' bash scripts/scrub-check.sh`. Without it the check fails. Pull requests from forks get no secrets, so their pull request check skips the internal-name part. Changes merge only through the merge queue, which runs the full check with the secret on the exact commit that would land on `main`, so nothing merges unchecked. A new copy of this repository needs the secret before its first push.
 
-CI also runs `bash scripts/scrub-check.sh --release --history` on every push, pull request and merge queue run. It fails on any commit whose author or committer email is not a GitHub noreply address, so turn on "Keep my email addresses private" in your GitHub email settings before you commit here.
+CI also runs `bash scripts/scrub-check.sh --release --history` on every push, pull request and merge queue run. It fails on any commit whose author or committer email is not a GitHub noreply address, so before you commit here, set `git config user.email` to the noreply address shown in your GitHub email settings, and turn on "Keep my email addresses private" there so GitHub's web merges use it too. A commit made with another address has to be rewritten before it can merge.
 
 ## Source of truth
 

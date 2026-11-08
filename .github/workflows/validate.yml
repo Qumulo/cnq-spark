@@ -2,6 +2,7 @@ name: validate
 on:
   push:
     branches-ignore: ['gh-readonly-queue/**'] # the merge queue's own branches run as merge_group
+    tags: ['**'] # a branch filter alone would stop tag pushes from running
   pull_request:
   merge_group:
 permissions:
