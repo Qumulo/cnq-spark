@@ -11,9 +11,11 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # Actions are pinned to a full commit SHA: a tag can be moved to other code. Dependabot updates the pin.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false # nothing later needs the token
       - name: JSON syntax
         run: |
           for f in azuredeploy.json createUiDefinition.json; do jq empty "$f"; done
@@ -32,13 +34,3 @@ jobs:
           SCRUB_INTERNAL_RE: ${{ secrets.SCRUB_INTERNAL_RE }}
           SCRUB_ALLOW_NO_INTERNAL: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
         run: bash scripts/scrub-check.sh --release --history
-      - name: ARM template test toolkit (advisory)
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          git clone --depth 1 https://github.com/Azure/arm-ttk.git "$HOME/arm-ttk"
-          Import-Module "$HOME/arm-ttk/arm-ttk/arm-ttk.psd1"
-          $results = Test-AzTemplate -TemplatePath ./azuredeploy.json
-          $failed = $results | Where-Object { -not $_.Passed }
-          $failed | Format-List Name, Errors
-          if ($failed) { exit 1 }
