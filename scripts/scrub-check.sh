@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Fails if anything internal, secret or private is about to go public.
-#   scripts/scrub-check.sh            always-on checks (CI runs this on every push)
+#   scripts/scrub-check.sh            always-on checks
 #   scripts/scrub-check.sh --release  also fails on unfinished placeholders, a missing LICENSE,
-#                                     and binary files or images that have not been reviewed (run before going public; CI runs it once public)
+#                                     and binary files or images that have not been reviewed
 #   scripts/scrub-check.sh --record-images
 #                                     records the binary files and images as reviewed, in .github/image-review.sha256.
 #                                     Run it only after checking each one.
 #   scripts/scrub-check.sh --history  also scans every commit on every branch for keys, internal
-#                                     files and internal names. Run it before the repo goes public:
-#                                     whatever is in history becomes public too.
+#                                     files and internal names, and fails on any author or committer
+#                                     email that is not a GitHub noreply address. Whatever is in
+#                                     history is public too.
+# CI runs it, then with --release --history, on every push, pull request and merge queue run.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 release=0; history=0; record=0
@@ -125,6 +127,11 @@ if (( history )); then
     fi
     hits=$(grep -E "$guid" <<<"$log" | grep -v '00000000-0000-0000-0000-000000000000' | head -10 || true)
     [[ -n $hits ]] && { bad "GUID in history (subscription, tenant or object ID?)"; printf '%s\n' "$hits" | show; }
+    # Any other address would publish a person's email. The message names the commit, not the address.
+    hits=$(git log --all --format='%h %ae%n%h %ce' |
+      awk '{ e = tolower($2) } e !~ /@users\.noreply\.github\.com$/ && e != "noreply@github.com" { print "commit " $1 }' |
+      sort -u | head -10)
+    [[ -n $hits ]] && { bad "author or committer email that is not a GitHub noreply address (turn on \"Keep my email addresses private\" in GitHub's email settings)"; printf '%s\n' "$hits" | show; }
   fi
 fi
 
