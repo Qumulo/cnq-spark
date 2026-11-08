@@ -1,0 +1,201 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "isWizard": false,
+      "basics": {
+        "description": "Deploys one CNQ Spark VM on Ubuntu 22.04 into an existing subnet in your subscription. Spark gets a private IP address only. Not for production use: no data protection, no support, provided as-is."
+      }
+    },
+    "basics": [
+      {
+        "name": "notice",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": true,
+        "options": {
+          "icon": "Warning",
+          "text": "Spark is for scratch and non-production data only. It does not protect your data. If the VM fails or restarts you can lose everything on it."
+        }
+      },
+      {
+        "name": "vmName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "VM name",
+        "toolTip": "Also becomes the Spark cluster name. 2 to 15 characters: lowercase letters, numbers and hyphens, starting with a letter and not ending with a hyphen.",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-z][a-z0-9-]{0,13}[a-z0-9]$",
+          "validationMessage": "Use 2 to 15 characters: lowercase letters, numbers and hyphens, starting with a letter and not ending with a hyphen."
+        }
+      },
+      {
+        "name": "compute",
+        "type": "Microsoft.Common.DropDown",
+        "label": "Size",
+        "defaultValue": "Standard (Standard_D4s_v5)",
+        "toolTip": "Plus has twice the vCPUs of Standard. Azure bills the VM and the 1 TB disk at standard rates.",
+        "constraints": {
+          "required": true,
+          "allowedValues": [
+            {
+              "label": "Standard (Standard_D4s_v5)",
+              "value": "standard"
+            },
+            {
+              "label": "Plus (Standard_D8s_v5)",
+              "value": "plus"
+            }
+          ]
+        },
+        "visible": true
+      },
+      {
+        "name": "vnet",
+        "type": "Microsoft.Solutions.ResourceSelector",
+        "label": "Virtual network",
+        "toolTip": "An existing virtual network in this subscription and in the region you chose above. Spark gets a private IP address only, so you need a network path to it (VPN, Bastion or a peered VM).",
+        "resourceType": "Microsoft.Network/virtualNetworks",
+        "options": {
+          "filter": {
+            "subscription": "onBasics",
+            "location": "onBasics"
+          }
+        }
+      },
+      {
+        "name": "subnetsApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(basics('vnet').id, '/subnets?api-version=2024-05-01')]"
+        }
+      },
+      {
+        "name": "subnetId",
+        "type": "Microsoft.Common.DropDown",
+        "label": "Subnet",
+        "toolTip": "A subnet of the virtual network above, with outbound internet access.",
+        "visible": "[not(empty(basics('vnet')))]",
+        "constraints": {
+          "required": true,
+          "allowedValues": "[map(filter(basics('subnetsApi').value, (item) => and(not(equals(item.name, 'GatewaySubnet')), not(equals(item.name, 'AzureBastionSubnet')), not(equals(item.name, 'AzureFirewallSubnet')), not(equals(item.name, 'AzureFirewallManagementSubnet')), not(equals(item.name, 'RouteServerSubnet')))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+        }
+      },
+      {
+        "name": "network",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": true,
+        "options": {
+          "icon": "Info",
+          "text": "The subnet needs outbound internet access, through a NAT gateway or your firewall: HTTPS to GitHub, Qumulo and Azure Storage, and HTTP to Ubuntu's package archive. On first boot the VM downloads Spark, Docker and Qumulo Core.",
+          "uri": "https://github.com/Qumulo/cnq-spark#before-you-deploy"
+        }
+      },
+      {
+        "name": "adminCredentials",
+        "type": "Microsoft.Compute.CredentialsCombo",
+        "label": {
+          "authenticationType": "Authentication type",
+          "password": "Password",
+          "confirmPassword": "Confirm password",
+          "sshPublicKey": "SSH public key"
+        },
+        "toolTip": {
+          "authenticationType": "SSH keys only.",
+          "password": "",
+          "sshPublicKey": "Generate a new key pair and the portal downloads the private key when you select Create. Keep it: it's how you sign in to Spark as azureuser. Or use a key stored in Azure, or paste your own public key (RSA or ED25519). Never paste a private key."
+        },
+        "constraints": {
+          "required": true
+        },
+        "options": {
+          "hideConfirmation": true,
+          "hidePassword": true
+        },
+        "osPlatform": "Linux",
+        "visible": true
+      },
+      {
+        "name": "workEmail",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Email",
+        "toolTip": "Your email address, for example name@company.com.",
+        "constraints": {
+          "required": true,
+          "validations": [
+            {
+              "regex": "^(?=.{1,254}$)(?=[^@]{1,64}@)(?!.*@(?:[eE][xX][aA][mM][pP][lL][eE]\\.[cC][oO][mM]|[eE][xX][aA][mM][pP][lL][eE]\\.[nN][eE][tT]|[eE][xX][aA][mM][pP][lL][eE]\\.[oO][rR][gG])$)(?!.*\\.(?:[eE][xX][aA][mM][pP][lL][eE]|[iI][nN][vV][aA][lL][iI][dD]|[lL][oO][cC][aA][lL]|[lL][oO][cC][aA][lL][hH][oO][sS][tT]|[tT][eE][sS][tT])$)[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$",
+              "message": "Enter an email like name@company.com."
+            }
+          ]
+        }
+      },
+      {
+        "name": "adminPassword",
+        "type": "Microsoft.Common.PasswordBox",
+        "label": {
+          "password": "Spark admin password",
+          "confirmPassword": "Confirm password"
+        },
+        "toolTip": "You sign in to Spark's web page and sudo spark with user admin and this password. It is stored on the VM in /etc/spark/admin-password (root only).",
+        "constraints": {
+          "required": true,
+          "regex": "^(?:(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])|(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9])|(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])|(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]))[!#-\\[\\]-~]{12,64}$",
+          "validationMessage": "12 to 64 characters, no spaces, double quotes or backslashes, with at least three of: lower case, upper case, a digit, a symbol."
+        },
+        "options": {
+          "hideConfirmation": false
+        },
+        "visible": true
+      },
+      {
+        "name": "sent",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": true,
+        "options": {
+          "icon": "Info",
+          "text": "When the VM first boots, it asks Qumulo for a Core download link. With that request it sends the email above and Microsoft's signed identity document for this VM, which names its VM ID and subscription ID. Qumulo keeps the email, the VM ID, a hash of the subscription ID, the region and the Core version for a year after the VM was last seen.",
+          "uri": "https://github.com/Qumulo/cnq-spark#what-spark-sends-to-qumulo"
+        }
+      },
+      {
+        "name": "webUi",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": true,
+        "options": {
+          "icon": "Info",
+          "text": "After the deploy, open https://<the VM's private IP>/ from a machine on this network, and sign in as admin with the password above. The certificate is self-signed: the browser warns once. To check it, compare its fingerprint with the one sudo spark web status prints."
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "tags",
+        "label": "Tags",
+        "elements": [
+          {
+            "name": "tagsByResource",
+            "type": "Microsoft.Common.TagsByResource",
+            "resources": [
+              "Microsoft.Compute/virtualMachines",
+              "Microsoft.Compute/virtualMachines/runCommands",
+              "Microsoft.Network/networkInterfaces"
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "vmName": "[basics('vmName')]",
+      "location": "[location()]",
+      "subnetId": "[basics('subnetId')]",
+      "sshPublicKey": "[basics('adminCredentials').sshPublicKey]",
+      "compute": "[basics('compute')]",
+      "workEmail": "[basics('workEmail')]",
+      "adminPassword": "[basics('adminPassword')]",
+      "tagsByResource": "[steps('tags').tagsByResource]"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+name: validate
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: JSON syntax
+        run: |
+          for f in azuredeploy.json createUiDefinition.json; do jq empty "$f"; done
+      - name: Scrub check tests
+        run: bash scripts/scrub-check-test.sh
+      # The internal-name list is a secret, given only to the two steps that need it. Pull requests
+      # from forks get no secrets, so only they may run without it.
+      - name: Scrub check (nothing internal, no keys or IDs)
+        env:
+          SCRUB_INTERNAL_RE: ${{ secrets.SCRUB_INTERNAL_RE }}
+          SCRUB_ALLOW_NO_INTERNAL: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
+        run: bash scripts/scrub-check.sh
+      - name: Release gate and history (once the repo is public)
+        if: ${{ !github.event.repository.private }}
+        env:
+          SCRUB_INTERNAL_RE: ${{ secrets.SCRUB_INTERNAL_RE }}
+          SCRUB_ALLOW_NO_INTERNAL: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
+        run: bash scripts/scrub-check.sh --release --history
+      - name: ARM template test toolkit (advisory)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          git clone --depth 1 https://github.com/Azure/arm-ttk.git "$HOME/arm-ttk"
+          Import-Module "$HOME/arm-ttk/arm-ttk/arm-ttk.psd1"
+          $results = Test-AzTemplate -TemplatePath ./azuredeploy.json
+          $failed = $results | Where-Object { -not $_.Passed }
+          $failed | Format-List Name, Errors
+          if ($failed) { exit 1 }

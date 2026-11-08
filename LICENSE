@@ -1,0 +1,51 @@
+Qumulo Spark Deployment Files License
+
+Copyright (c) 2026 Qumulo, Inc. All rights reserved.
+
+This license applies to the contents of this repository (the "Files"): the
+deployment template, portal form, runbook, and scripts. It does
+not apply to the Spark program attached to this repository's releases, to
+Qumulo Core, or to any other Qumulo software. Those are licensed under the
+Qumulo end user license agreement or another agreement you have with
+Qumulo.
+
+1. Grant. Qumulo, Inc. ("Qumulo") grants you a non-exclusive,
+   non-transferable, royalty-free license to download, copy, and use the
+   Files, and to adjust the deployment template and scripts for your own
+   needs, solely to deploy and run Qumulo Spark in Azure subscriptions that
+   you control. You may keep copies of the Files in repositories and
+   mirrors you control for that purpose.
+
+2. Restrictions. Except as allowed in Section 1 or by applicable law, you
+   may not:
+   (a) reverse engineer the Files or create derivative works of them;
+   (b) distribute, sell, sublicense, or otherwise make the Files available
+       to third parties, or use them to build a product or service for
+       third parties; or
+   (c) remove or alter any copyright or license notices.
+
+3. Your agreement with Qumulo. If you have a separate written agreement
+   with Qumulo that covers the Files, that agreement governs where it
+   conflicts with this license.
+
+4. Third-party components. The Files may refer to or include third-party
+   components that are licensed under their own terms. Those terms apply to
+   those components, and nothing in this license limits your rights under
+   them.
+
+5. Future licensing. Qumulo may later release the Files under an open
+   source license, such as the Apache License, Version 2.0. Any such
+   release applies only to the versions published under it.
+
+6. No warranty. THE FILES ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+   KIND, EXPRESS OR IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+7. Limitation of liability. TO THE MAXIMUM EXTENT PERMITTED BY LAW,
+   QUMULO WILL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY
+   ARISING FROM OR CONNECTED TO THE FILES OR THEIR USE.
+
+8. Termination. This license ends automatically if you breach it. When it
+   ends, you must stop using the Files and delete your copies.
+
+For licensing questions, contact Qumulo, Inc.

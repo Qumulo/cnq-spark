@@ -1,0 +1,11 @@
+# Every change to the files that deploy into a customer's subscription, or that tell people what Spark does and sends, needs a review from a code owner.
+# Owners must have write access to the repository. Turn on "Require review from Code Owners" in branch protection for main.
+/azuredeploy.json        @jwalqen @TimothyMRyter
+/createUiDefinition.json @jwalqen @TimothyMRyter
+/RUNBOOK.md              @jwalqen @TimothyMRyter
+/scripts/                @jwalqen @TimothyMRyter
+/.github/                @jwalqen @TimothyMRyter
+/README.md               @jwalqen @TimothyMRyter
+/SECURITY.md             @jwalqen @TimothyMRyter
+/LICENSE                 @jwalqen @TimothyMRyter
+/docs/                   @jwalqen @TimothyMRyter

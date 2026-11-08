@@ -1,0 +1,13 @@
+# Never commit these. scripts/scrub-check.sh also fails on them.
+*.pem
+*.key
+*.pfx
+id_rsa*
+id_ed25519*
+*.env
+!*.env.example
+*.tfstate
+*.tfstate.*
+deploy-logs/
+.DS_Store
+Thumbs.db
