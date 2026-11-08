@@ -128,9 +128,12 @@ if (( history )); then
     hits=$(grep -E "$guid" <<<"$log" | grep -v '00000000-0000-0000-0000-000000000000' | head -10 || true)
     [[ -n $hits ]] && { bad "GUID in history (subscription, tenant or object ID?)"; printf '%s\n' "$hits" | show; }
     # Any other address would publish a person's email. The message names the commit, not the address.
-    hits=$(git log --all --format='%h %ae%n%h %ce' |
-      awk '{ e = tolower($2) } e !~ /@users\.noreply\.github\.com$/ && e != "noreply@github.com" { print "commit " $1 }' |
-      sort -u | head -10)
+    # The whole address must be one: git allows spaces in an email, so check the field, not its first word.
+    hits=$(git log --all --format='%h%x09%ae%n%h%x09%ce' |
+      awk -F '\t' '{
+        e = tolower(substr($0, length($1) + 2))
+        if (e !~ /^([0-9]+\+)?[a-z0-9-]+(\[bot\])?@users\.noreply\.github\.com$/ && e != "noreply@github.com") print "commit " $1
+      }' | sort -u | head -10)
     [[ -n $hits ]] && { bad "author or committer email that is not a GitHub noreply address (turn on \"Keep my email addresses private\" in GitHub's email settings)"; printf '%s\n' "$hits" | show; }
   fi
 fi
