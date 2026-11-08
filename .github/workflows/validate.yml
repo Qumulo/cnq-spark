@@ -1,7 +1,10 @@
 name: validate
 on:
   push:
+    branches-ignore: ['gh-readonly-queue/**'] # the merge queue's own branches run as merge_group
+    tags: ['**'] # a branch filter alone would stop tag pushes from running
   pull_request:
+  merge_group:
 permissions:
   contents: read
 jobs:
@@ -17,14 +20,14 @@ jobs:
       - name: Scrub check tests
         run: bash scripts/scrub-check-test.sh
       # The internal-name list is a secret, given only to the two steps that need it. Pull requests
-      # from forks get no secrets, so only they may run without it.
+      # from forks get no secrets, so only they may run without it. The merge queue runs with it,
+      # on the exact commit that would land on main, so a fork's change is checked before it merges.
       - name: Scrub check (nothing internal, no keys or IDs)
         env:
           SCRUB_INTERNAL_RE: ${{ secrets.SCRUB_INTERNAL_RE }}
           SCRUB_ALLOW_NO_INTERNAL: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
         run: bash scripts/scrub-check.sh
-      - name: Release gate and history (once the repo is public)
-        if: ${{ !github.event.repository.private }}
+      - name: Release gate and history
         env:
           SCRUB_INTERNAL_RE: ${{ secrets.SCRUB_INTERNAL_RE }}
           SCRUB_ALLOW_NO_INTERNAL: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
