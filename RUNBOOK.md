@@ -9,8 +9,8 @@ Spark is for scratch and non-production data only. It has no data protection, no
 Follow these without exception. If a step cannot be done within them, stop and tell the person.
 
 - The person signs in to Azure themselves. Never ask for, accept or store a password, token or key.
-- Use only the template at the pinned URL below. Do not edit it, write a different one, or add resources.
-- Do not create a public IP address. Do not open inbound ports 22, 80, 443, 445, 2049 or 8000 to the internet. Do not change the network security group to allow them.
+- Use only the template at the pinned URL below. Do not edit it, write a different one, or add resources to it. Outside it, you may create only these, each after a clear yes: a new resource group (step 2), a NAT gateway and its public IP address for an existing subnet when the person asks (step 2), and the network pieces in "No usable virtual network".
+- Do not create a public IP address for the VM or attach one to it. The only public IP address you may create is a NAT gateway's, which carries outbound traffic only, in the two cases in step 2. Do not open inbound ports 22, 80, 443, 445, 2049 or 8000 to the internet. Do not change the network security group to allow them.
 - Use the SSH public key only. Never read, print or upload a private key. If the person has no key, tell them how to create one and let them run it.
 - The person chooses the Spark admin password and writes it into a parameters file themselves (step 2). Never ask for the password, suggest or generate one, or open, read, print, copy or upload that file. Pass it to Azure only as the file's path, `--parameters "$PW_FILE"`, never with `@` in front: with `@`, the Azure CLI prints the file's contents if the file is not valid JSON.
 - Before anything is created or deleted, show the person exactly what will change and wait for a clear yes.
@@ -53,9 +53,28 @@ Show the result and ask: "Is this the subscription you want Spark in?" If not, h
 Ask the person for each of these. Do not pick values for them.
 
 1. **Resource group.** An existing one, or a new one. Creating a resource group is a change, so get a yes first.
-2. **Region.** One of `eastus2`, `centralus` or `westus2`.
+2. **Region.** The region of the subnet's virtual network (item 4), as `LOC`. If the person gives you a subnet ID, read the region from it: `az network vnet show --ids "${SUBNET%/subnets/*}" --query location -o tsv`. Spark runs in any Azure region that offers the chosen size to this subscription. Check it once you have the region and the size, with `SIZE` set to `Standard_D4s_v5` for standard or `Standard_D8s_v5` for plus:
+
+   ```
+   az vm list-skus -l "$LOC" --size "$SIZE" --resource-type virtualMachines --all \
+     --query "[?name=='$SIZE'].{size:name, blocked:restrictions[?type=='Location'].reasonCode}" -o json
+   ```
+
+   It must print one entry whose `blocked` list is empty. No entry means the size isn't offered in that region; a reason under `blocked`, such as `NotAvailableForSubscription`, means the region is closed to this subscription for that size. In either case, show the person and stop. Restrictions of type `Zone` don't matter: they apply only to a VM pinned to that zone, and this runbook deploys without one.
 3. **VM name.** It also becomes the Spark cluster name. 2 to 15 characters: lowercase letters, numbers and hyphens, starting with a letter.
-4. **Subnet.** The full resource ID of an existing subnet. If they do not have it, list candidates for them to choose from with `az network vnet subnet list` and let them pick.
+4. **Subnet.** The full resource ID of an existing subnet. If they do not have it, list the virtual networks in this subscription, in every region, so that a network in another region is not missed:
+
+   ```
+   az network vnet list --query "[].{name:name, resourceGroup:resourceGroup, region:location}" -o table
+   ```
+
+   Then list the subnets of the one they choose, and let them pick:
+
+   ```
+   az network vnet subnet list -g <its resource group> --vnet-name <its name> --query "[].{name:name, id:id}" -o table
+   ```
+
+   If the network they want is in another subscription, go back to step 1 and switch to that subscription: a network interface cannot join a subnet in a different subscription. If they have no network they can use, see "No usable virtual network" below.
 5. **SSH public key file.** The path to a `.pub` file. Refuse a path that does not end in `.pub`.
 6. **Email.** The person types it. Pass it exactly as typed, as `EMAIL`.
 7. **Admin password file.** The path to a parameters file that the person writes themselves, holding the Spark admin password they choose. They sign in to the web UI as `admin` with it. The password must be 12 to 64 characters, with at least three of lower case, upper case, a digit and a symbol, and no spaces, double quotes (`"`) or backslashes (`\`). The file looks like this:
@@ -87,8 +106,69 @@ Then check these before going on:
   az network vnet subnet show --ids "$SUBNET" --query "{nat:natGateway.id, routeTable:routeTable.id, defaultOutboundAccess:defaultOutboundAccess}" -o json
   ```
 
-  If there is no NAT gateway and no route table, tell the person the install is likely to fail and stop. Do not add a public IP address. Adding a NAT gateway is a separate change that is not part of this template; do it only if the person asks, and only after showing them exactly what it creates and getting a clear yes.
+  If there is no NAT gateway and no route table, tell the person the install is likely to fail and stop. Do not add a public IP address to the VM. Adding a NAT gateway is a separate change that is not part of this template; do it only if the person asks.
+  - It changes outbound traffic for everything in that subnet, so the person must own the network or have its owner's agreement.
+  - It goes in their resource group, in the subnet's region.
+  - Use the name check, the public IP and NAT gateway commands, and the failure handling in "No usable virtual network". Leave out the virtual network.
+  - Tell them that Azure bills the NAT gateway and its public IP address by the hour, and the NAT gateway by the data it processes, and that both stay when Spark is removed.
+  - Show them exactly what it creates and wait for a clear yes. Then attach it:
+
+    ```
+    az network vnet subnet update --ids "$SUBNET" --nat-gateway "$(az network nat gateway show -g "$RG" -n "$NAME-nat" --query id -o tsv)" -o none
+    ```
 - The person already has a network path to that subnet, such as a VPN, Azure Bastion, or a VM on the same or a peered network. Spark gets no public IP address, so without a path they cannot reach it. If they have none, stop and say so. Do not offer to add a public IP address.
+
+### No usable virtual network
+
+Spark deploys into an existing virtual network. If the person has none they can use, tell them what it needs:
+
+- a subnet in the chosen region, in this subscription;
+- outbound internet access from that subnet, such as a NAT gateway or a firewall with a route;
+- a way for them to reach the subnet, such as a VPN, Azure Bastion, or peering with a network they already reach. Spark gets no public IP address.
+
+Ask how they will reach a new network first. A new virtual network is reachable only through a path they set up after it exists, such as peering, Azure Bastion or a VPN. If they have no plan for one, stop: Spark could not be used. Do not offer a public IP address for the VM. There is no support for Spark, so do not send the person to Qumulo for a network or a path.
+
+You may then offer to create a virtual network with one subnet and a NAT gateway. Ask the person for:
+
+- the region, as `LOC`. Check the size there as in item 2 before anything else;
+- the virtual network's address range, as `VNET_RANGE`, and the subnet's range inside it, as `SUBNET_RANGE`. They must not overlap networks the person will connect from or peer with. Do not pick them.
+
+The resource group from item 1 must exist. The names below come from the VM name. Check that none of them is taken:
+
+```
+az network vnet show -g "$RG" -n "$NAME-vnet" --query id -o tsv
+az network public-ip show -g "$RG" -n "$NAME-nat-ip" --query id -o tsv
+az network nat gateway show -g "$RG" -n "$NAME-nat" --query id -o tsv
+```
+
+Each must fail with `ResourceNotFound`. If one prints an ID, a resource with that name already exists, and a create command would change it: stop and tell the person. Do not reuse or change it. If one fails with another error, show it and stop.
+
+Show the person the four resources, in their resource group and region:
+
+- the virtual network `$NAME-vnet`;
+- its subnet `spark`, attached to the NAT gateway;
+- the public IP address `$NAME-nat-ip`, used by the NAT gateway for outbound traffic only. Nothing can connect in through it, and the VM gets no public IP address;
+- the NAT gateway `$NAME-nat`.
+
+Tell them that:
+- Azure bills the NAT gateway and its public IP address by the hour, and the NAT gateway by the data it processes;
+- these stay when Spark is removed;
+- Spark is not deployed until their path to the new network works.
+
+Wait for a clear yes. If their organization requires tags (item 8), add `--tags` with the same tags to each `create` command. Create the network first: it costs nothing, and Azure checks the address ranges as it creates it. Then:
+
+```
+az network vnet create -g "$RG" -n "$NAME-vnet" -l "$LOC" --address-prefixes "$VNET_RANGE" \
+  --subnet-name spark --subnet-prefixes "$SUBNET_RANGE" -o none
+az network public-ip create -g "$RG" -n "$NAME-nat-ip" -l "$LOC" --sku Standard --allocation-method Static -o none
+az network nat gateway create -g "$RG" -n "$NAME-nat" -l "$LOC" --public-ip-addresses "$NAME-nat-ip" -o none
+az network vnet subnet update -g "$RG" --vnet-name "$NAME-vnet" -n spark --nat-gateway "$NAME-nat" -o none
+SUBNET=$(az network vnet subnet show -g "$RG" --vnet-name "$NAME-vnet" -n spark --query id -o tsv)
+```
+
+If a command fails, show the error and stop. Run the three `show` commands from the name check again to see what was created, and tell the person. Anything already created stays, and the public IP address and NAT gateway bill until deleted. Offer to delete what was created, using the commands in "Remove Spark", and do it only after a clear yes. Do not retry with other values on your own.
+
+Then the person sets up their path to `$NAME-vnet`, outside this runbook. Wait until they say it works. If it isn't ready yet, stop here: the network stays, and they can come back later and continue with this subnet. Once it works, go back to the checks above with this subnet.
 
 ## Step 3. Validate and preview
 
@@ -212,6 +292,24 @@ az vm delete -g "$RG" -n "$NAME" --yes
 ```
 
 Never delete the resource group unless the person created it for Spark and says so.
+
+If you created the network pieces in "No usable virtual network", they stay after the VM is deleted. Delete them only if the person asks, after showing them the list and getting a yes. The network can be deleted only after the person removes what they added to it, such as a Bastion host, a VPN gateway or peerings. Do not delete those for them. Then, in this order:
+
+```
+az network vnet delete -g "$RG" -n "$NAME-vnet"
+az network nat gateway delete -g "$RG" -n "$NAME-nat"
+az network public-ip delete -g "$RG" -n "$NAME-nat-ip"
+```
+
+If you added a NAT gateway to an existing subnet (step 2), it stays after the VM is deleted, and it can't be deleted while it is attached. Remove it only if the person asks. Detaching it ends that outbound path for everything in the subnet, so show them that and get a yes. Then:
+
+```
+az network vnet subnet update --ids "$SUBNET" --remove natGateway -o none
+az network nat gateway delete -g "$RG" -n "$NAME-nat"
+az network public-ip delete -g "$RG" -n "$NAME-nat-ip"
+```
+
+Never delete their virtual network or subnet.
 
 ## If something goes wrong
 
