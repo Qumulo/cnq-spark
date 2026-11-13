@@ -35,7 +35,7 @@ The subnet needs outbound access to `github.com` and `release-assets.githubuserc
 Template URL (pinned to a release):
 
 ```
-TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/v0.10.1/azuredeploy.json
+TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/v0.11.0/azuredeploy.json
 ```
 
 ## Step 1. Confirm the Azure sign-in

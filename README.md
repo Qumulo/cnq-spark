@@ -35,7 +35,7 @@ Regions: any Azure region where the size you choose is available to your subscri
 
 ## Deploy
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.10.1%2Fazuredeploy.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.10.1%2FcreateUiDefinition.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.0%2Fazuredeploy.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.0%2FcreateUiDefinition.json)
 
 The portal asks for your subscription, resource group and region, then six values:
 
