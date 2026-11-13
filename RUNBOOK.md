@@ -52,7 +52,7 @@ Show the result and ask: "Is this the subscription you want Spark in?" If not, h
 
 Ask the person for each of these. Do not pick values for them.
 
-1. **Resource group.** An existing one, or a new one. Creating a resource group is a change, so get a yes first.
+1. **Resource group.** An existing one, or a new one. Creating a resource group is a change, so get a yes first. Create a new one right before the first command that needs it: the name check in "No usable virtual network", or the validate in step 3. By then the size check (item 2) has passed and you have the tags, if their organization requires them (item 8); before step 3's validate, the subnet checks in step 2 have passed too. First check that the name is free: `az group exists -n "$RG"` must print `false`. If it prints `true`, a group with that name already exists, and creating it would change that group: stop and tell the person. Do not reuse or change it. Then run `az group create -n "$RG" -l "$LOC" -o none`, with `--tags` for those tags. Whenever you stop after creating it, tell the person the group exists and stays unless they ask you to delete it. Until it exists, Azure answers `ResourceGroupNotFound` for anything in it.
 2. **Region.** The region of the subnet's virtual network (item 4), as `LOC`. If the person gives you a subnet ID, read the region from it: `az network vnet show --ids "${SUBNET%/subnets/*}" --query location -o tsv`. Spark runs in any Azure region that offers the chosen size to this subscription. Check it once you have the region and the size, with `SIZE` set to `Standard_D4s_v5` for standard or `Standard_D8s_v5` for plus:
 
    ```
@@ -133,7 +133,7 @@ You may then offer to create a virtual network with one subnet and a NAT gateway
 - the region, as `LOC`. Check the size there as in item 2 before anything else;
 - the virtual network's address range, as `VNET_RANGE`, and the subnet's range inside it, as `SUBNET_RANGE`. They must not overlap networks the person will connect from or peer with. Do not pick them.
 
-The resource group from item 1 must exist. The names below come from the VM name. Check that none of them is taken:
+If the resource group from item 1 is new, create it now, in `LOC`, as item 1 says, after the size check above. The names below come from the VM name. Check that none of them is taken:
 
 ```
 az network vnet show -g "$RG" -n "$NAME-vnet" --query id -o tsv
@@ -171,6 +171,8 @@ If a command fails, show the error and stop. Run the three `show` commands from 
 Then the person sets up their path to `$NAME-vnet`, outside this runbook. Wait until they say it works. If it isn't ready yet, stop here: the network stays, and they can come back later and continue with this subnet. Once it works, go back to the checks above with this subnet.
 
 ## Step 3. Validate and preview
+
+If the resource group from item 1 is new and doesn't exist yet, create it first, as item 1 says.
 
 These commands print only the result and the list of resources, never the parameters.
 
@@ -291,7 +293,7 @@ Show the person exactly what will be deleted: the VM, its network interface `nic
 az vm delete -g "$RG" -n "$NAME" --yes
 ```
 
-Never delete the resource group unless the person created it for Spark and says so.
+Never delete the resource group unless the person created it for Spark and says so. If this runbook created it (item 1), you may delete it when the person asks: first show that it is empty (`az resource list -g "$RG" -o table` lists nothing), then get a yes, then `az group delete -n "$RG" --yes`.
 
 If you created the network pieces in "No usable virtual network", they stay after the VM is deleted. Delete them only if the person asks, after showing them the list and getting a yes. The network can be deleted only after the person removes what they added to it, such as a Bastion host, a VPN gateway or peerings. Do not delete those for them. Then, in this order:
 

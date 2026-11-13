@@ -52,6 +52,14 @@
         "visible": true
       },
       {
+        "name": "vnetsApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(subscription().id, '/providers/Microsoft.Network/virtualNetworks?api-version=2024-05-01')]"
+        }
+      },
+      {
         "name": "vnet",
         "type": "Microsoft.Solutions.ResourceSelector",
         "label": "Virtual network",
@@ -62,6 +70,16 @@
             "subscription": "onBasics",
             "location": "onBasics"
           }
+        }
+      },
+      {
+        "name": "noVnet",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": "[and(not(empty(location())), contains(coalesce(basics('vnetsApi'), parse('{}')), 'value'), empty(basics('vnetsApi').nextLink), empty(filter(basics('vnetsApi').value, (v) => equals(toLower(v.location), toLower(location())))))]",
+        "options": {
+          "icon": "Warning",
+          "text": "No virtual network found in this subscription and region. Spark deploys into an existing virtual network. Create one in this region, with a subnet that has outbound internet access through a NAT gateway or a firewall, then open this form again. Or pick another region. You also need a way to reach the VM's private IP address, such as a VPN, Azure Bastion or a peered network.",
+          "uri": "https://github.com/Qumulo/cnq-spark#before-you-start"
         }
       },
       {
@@ -90,7 +108,7 @@
         "options": {
           "icon": "Info",
           "text": "The subnet needs outbound internet access, through a NAT gateway or your firewall: HTTPS to GitHub, Qumulo and Azure Storage, and HTTP to Ubuntu's package archive. On first boot the VM downloads Spark, Docker and Qumulo Core.",
-          "uri": "https://github.com/Qumulo/cnq-spark#before-you-deploy"
+          "uri": "https://github.com/Qumulo/cnq-spark#before-you-start"
         }
       },
       {
@@ -105,7 +123,7 @@
         "toolTip": {
           "authenticationType": "SSH keys only.",
           "password": "",
-          "sshPublicKey": "Generate a new key pair and the portal downloads the private key when you select Create. Keep it: it's how you sign in to Spark as azureuser. Or use a key stored in Azure, or paste your own public key (RSA or ED25519). Never paste a private key."
+          "sshPublicKey": "Generate a new key pair, use a key stored in Azure, or paste your own public key (RSA or ED25519). Never paste a private key."
         },
         "constraints": {
           "required": true
@@ -116,6 +134,16 @@
         },
         "osPlatform": "Linux",
         "visible": true
+      },
+      {
+        "name": "keyGen",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": "[equals(coalesce(basics('adminCredentials'), parse('{}')).generateNewSshKey, true)]",
+        "options": {
+          "icon": "Info",
+          "text": "Generating a key pair needs permission to create SSH keys in the resource group. Without it, the key dialog stays greyed out after you select Create: go back to Basics and pick Use existing public key instead. When it works, the portal downloads the private key once. Keep it: it's how you sign in to Spark as azureuser. The key stays in the resource group after you remove Spark.",
+          "uri": "https://github.com/Qumulo/cnq-spark#remove-spark"
+        }
       },
       {
         "name": "workEmail",
@@ -157,7 +185,7 @@
         "options": {
           "icon": "Info",
           "text": "When the VM first boots, it asks Qumulo for a Core download link. With that request it sends the email above and Microsoft's signed identity document for this VM, which names its VM ID and subscription ID. Qumulo keeps the email, the VM ID, a hash of the subscription ID, the region and the Core version for a year after the VM was last seen.",
-          "uri": "https://github.com/Qumulo/cnq-spark#what-spark-sends-to-qumulo"
+          "uri": "https://github.com/Qumulo/cnq-spark#what-the-vm-installs-and-contacts"
         }
       },
       {
