@@ -27,11 +27,11 @@ You need:
 - An existing virtual network and subnet, in the same subscription and region you deploy to. The portal lists them for you to pick.
 - A way to reach that subnet, such as a VPN, Azure Bastion, or a VM on the same or a peered network. Spark gets no public IP address, so you cannot reach it from the internet.
 - Outbound internet access from that subnet, such as a NAT gateway or a firewall. The VM downloads its software at install time and at first run, and it cannot do that without it.
-- An SSH key. You can let the portal generate a key pair: it downloads the private key when you select Create. Or use a key stored in Azure, or your own public key.
+- An SSH key. You can let the portal generate a key pair: it downloads the private key when you select Create. That needs permission to create SSH keys in the resource group. Or use a key stored in Azure, or your own public key.
 - A size: Standard (Standard_D4s_v5) or Plus (Standard_D8s_v5).
 - A Spark admin password you choose: 12 to 64 characters, with at least three of lower case, upper case, a digit and a symbol, and no spaces, double quotes (`"`) or backslashes (`\`).
 
-Supported regions: East US 2, Central US, West US 2.
+Regions: any Azure region where the size you choose is available to your subscription.
 
 ## Deploy
 
@@ -42,7 +42,7 @@ The portal asks for your subscription, resource group and region, then six value
 1. **VM name.** This also becomes the cluster name: 2 to 15 characters, lowercase letters, numbers and hyphens, starting with a letter.
 2. **Size.** Standard (`Standard_D4s_v5`) or Plus (`Standard_D8s_v5`).
 3. **Virtual network and subnet.** Pick an existing virtual network in the same subscription and region, then one of its subnets.
-4. **SSH key.** Generate a new key pair, and the portal downloads the private key when you select Create; keep it, it's how you sign in as `azureuser`. Or use a key stored in Azure, or paste your own public key.
+4. **SSH key.** Generate a new key pair, and the portal downloads the private key when you select Create; keep it, it's how you sign in as `azureuser`. Generating one needs permission to create SSH keys in the resource group; without it, the key dialog stays greyed out. Or use a key stored in Azure, or paste your own public key.
 5. **Email.** The VM sends it to Qumulo when it installs (see below).
 6. **Spark admin password.** You sign in to the web UI as `admin` with it. 12 to 64 characters, with at least three of lower case, upper case, a digit and a symbol, and no spaces, double quotes (`"`) or backslashes (`\`). It is stored on the VM in `/etc/spark/admin-password`, readable by root only.
 
@@ -109,6 +109,13 @@ Delete the VM. Its network interface and both disks are deleted with it. [RUNBOO
 
 ```
 az vm delete -g <resource-group> -n <name> --yes
+```
+
+If the portal generated your SSH key, Azure also saved its public key as an SSH key resource in the resource group. It stays after the VM is deleted. Delete it too if you no longer need it. List the key names, then delete yours:
+
+```
+az sshkey list -g <resource-group> --query "[].name" -o tsv
+az sshkey delete -g <resource-group> -n <key name> --yes
 ```
 
 ## Support and contact
