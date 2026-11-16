@@ -14,13 +14,19 @@ jobs:
       # Actions are pinned to a full commit SHA: a tag can be moved to other code. Dependabot updates the pin.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # the history scan, and the pin check's published tags
           persist-credentials: false # nothing later needs the token
       - name: JSON syntax
         run: |
           for f in azuredeploy.json createUiDefinition.json; do jq empty "$f"; done
       - name: Scrub check tests
         run: bash scripts/scrub-check-test.sh
+      - name: Version pins agree (README button, RUNBOOK TEMPLATE_URL, bundleUrl)
+        env:
+          # On a tag push the pins must name that tag. Publishing made the tag, so this only reports: a failure means
+          # withdrawing the release by revert and releasing a new version (docs/MAINTAINING.md).
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: bash scripts/pin-check-test.sh && bash scripts/pin-check.sh "$TAG"
       # The internal-name list is a secret, given only to the two steps that need it. Pull requests
       # from forks get no secrets, so only they may run without it. The merge queue runs with it,
       # on the exact commit that would land on main, so a fork's change is checked before it merges.

@@ -35,7 +35,7 @@ The subnet needs outbound access to `github.com` and `release-assets.githubuserc
 Template URL (pinned to a release):
 
 ```
-TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/v0.11.0/azuredeploy.json
+TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/v0.11.1/azuredeploy.json
 ```
 
 ## Step 1. Confirm the Azure sign-in
@@ -231,7 +231,7 @@ Tell the person the private IP address and the web UI's address. The install run
 
 ## Step 6. Connect and finish setup (the person does this)
 
-From a machine that can reach the private IP address, the person opens the web UI at `https://<private-ip>/`. While the install is still running, the page shows its progress without a sign-in. Then they sign in as `admin` with the password from their parameters file, and the first run opens: Password (optional), Shares, Users, Directory, Finish. When they first sign in, Spark registers the cluster with Qumulo under the same email.
+From a machine that can reach the private IP address, the person opens the web UI at `https://<private-ip>/`. If they reach the network only through a port forward, they forward a local port to the VM's port 443 and open `https://localhost:<that port>/`: with an Azure Bastion tunnel (Bastion Standard or Premium, with native client support), `az network bastion tunnel --name <bastion> --resource-group <its resource group> --target-resource-id <the VM's resource ID> --resource-port 443 --port 9443`, with the VM's resource ID filled in (from `az vm show -g "$RG" -n "$NAME" --query id -o tsv`, which you run), or with `ssh -L 9443:<private-ip>:443 <user>@<a machine in the network>`. Browsers don't keep cookies apart by port, so with tunnels to two Sparks at once they use a different loopback name for each (`localhost` or `127.0.0.1`), and while signed in they don't browse other local services on the same name. While the install is still running, the page shows its progress without a sign-in. Then they sign in as `admin` with the password from their parameters file, and the first run opens: Password (optional), Shares, Users, Directory, Finish. When they first sign in, Spark registers the cluster with Qumulo under the same email.
 
 The certificate is self-signed, so the browser warns the first time. To check it, the person compares its fingerprint with the one in the SSH login message or in `sudo spark web status`. Anyone their network lets reach the VM can reach the sign-in page; they can turn the web UI off with `sudo spark web off`, and back on with `sudo spark web on`.
 
@@ -320,4 +320,5 @@ Stop and show the error. Common causes: the subnet is in a different subscriptio
 Things the person can check on the VM, over SSH:
 
 - `sudo spark web status` shows whether the web UI runs, its ports and its certificate fingerprint. Its logs: `sudo journalctl -u spark-web -u spark-web-helper`.
+- If the subnet had no outbound internet access when the VM first booted, the install stops and `/var/log/spark-install.log` says why. Once outbound access works, `sudo /usr/local/sbin/spark-bootstrap` runs the install again (the SSH login message names it as the retry). It writes to the log, not the terminal, and returns when the install ends; follow it with `sudo tail -f /var/log/spark-install.log` from a second session. If the session drops before then, run it again.
 - If the admin password never reached the VM, first boot stops after 30 minutes and says why. Once the cause is fixed, `sudo systemctl restart spark-first-boot` starts it again.

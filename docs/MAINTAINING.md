@@ -16,12 +16,25 @@ CI also runs `bash scripts/scrub-check.sh --release --history` on every push, pu
 
 The internal repository is authoritative. Changes reach this repository by manual curation: copy the specific files, run `scripts/scrub-check.sh`, review the diff, merge. There is no automated mirror, because one wrong filter would publish something internal.
 
-## Releasing a change to the template
+## Releasing
 
-1. Merge the change to `main` through a pull request reviewed by a code owner.
-2. Deploy it end to end from a subscription that is not Qumulo's, using `RUNBOOK.md`.
-3. Tag a release (for example `v1.0.1`).
-4. Run `scripts/deploy-button.sh v1.0.1` and put the output in `README.md`. Update the tag in `RUNBOOK.md` the same way.
+A release is one pull request and one release, so the files at the tag are the ones the button and the runbook point at.
+
+1. Open one pull request, reviewed by a code owner, with the change and the version pin: the output of `scripts/deploy-button.sh vX.Y.Z` in `README.md`, and `RUNBOOK.md`'s `TEMPLATE_URL` at `vX.Y.Z`. CI's pin check (`scripts/pin-check.sh`) fails the pull request unless these and `azuredeploy.json`'s `bundleUrl` all name the same version, and, once that version is published, unless the template and the form are still its files. The pinned links answer 404 until step 3.
+2. Before it merges, check the bundle against its `.sha256` (`sha256sum -c <bundle>.sha256` in the bundle's directory), then create the release as a draft with the bundle named in `bundleUrl` and its `.sha256`: `gh release create vX.Y.Z --draft --prerelease --target main --title vX.Y.Z --notes-file <notes> <bundle> <bundle>.sha256`. Every release attaches them, because `bundleUrl` names the release's own tag: a release that changes only the template attaches the previous bundle again, unchanged. This prints `ok`, or `MISMATCH` when the uploaded bundle's name or digest differs from `azuredeploy.json`:
+
+   ```
+   want="$(jq -r '.parameters.bundleUrl.defaultValue | split("/") | last' azuredeploy.json) sha256:$(jq -r .parameters.bundleSha256.defaultValue azuredeploy.json)"
+   gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.name) \(.digest)"' | grep -qxF "$want" && echo ok || echo MISMATCH
+   ```
+
+   The bundle's digest must equal `bundleSha256` in the pull request's `azuredeploy.json`, and `bundleUrl` must be exactly `https://github.com/Qumulo/cnq-spark/releases/download/vX.Y.Z/<the bundle's file name>`: the VM downloads the bundle from that address and checks its digest, so a mismatch in either fails every deploy. Releases before 1.0 are pre-releases on purpose, so they never become Latest.
+3. Merge the pull request through the merge queue. Just before publishing, check out the merge commit and run `bash scripts/pin-check.sh vX.Y.Z`, which fails unless every pin names vX.Y.Z, and run the digest command from step 2 once more there, in case a later push or a re-uploaded file changed either. Then publish the draft at once on the merge commit: `gh release edit vX.Y.Z --target <merge commit> --draft=false`. Publishing creates the tag. Merge nothing else in between: until then, the button on `main` answers 404. If publishing fails, revert the release pull request in a new pull request (the merge queue squashes, so it is one commit on `main`: `git revert <that commit>`): that puts the template, the form, the button and `RUNBOOK.md` back at the previous release together, as the pin check requires. Then delete the draft (`gh release delete vX.Y.Z`), so it can't be published by mistake; a retry makes a new one.
+4. Straight after publishing, CI runs the pin check on the new tag. It can only report: a failure means withdrawing the release by revert, as below, and releasing a new version. Check that the button opens the form and that the release's download matches its `.sha256`. Then deploy the published release end to end, from its button or `RUNBOOK.md`'s `TEMPLATE_URL`, in Qumulo's subscription that stands in for a customer's: it is the first deploy that downloads the bundle from the release itself. Then the release can be announced.
+
+The button can only deploy a published release, so the gate before publishing is in the internal repository: the same template, form and bundle are deployed end to end from a private copy before the pull request, including in a Qumulo subscription that is separate from the one running the registration service and storage, which stands in for a customer's. No release waits on anyone outside Qumulo; a deploy from outside is welcome feedback, not a gate. If a published release is broken, a pull request that reverts its release pull request withdraws it the same way.
+
+Releases are immutable: this repository has GitHub's immutable releases setting on, so once published, a release's tag and files can't change, and its tag name can never be used again, even after the release is deleted. A new copy of this repository needs the setting on before its first release. A mistake needs a new version.
 
 The Deploy to Azure button and the runbook point at a tag, not at `main`. People who deployed an earlier tag are not affected by a later change.
 
@@ -29,8 +42,7 @@ The Deploy to Azure button and the runbook point at a tag, not at `main`. People
 
 1. Build the release pieces in the internal repository: the Spark bundle and its `.sha256`, `azuredeploy.json` with that bundle's URL and sha256 as defaults, and `createUiDefinition.json`. Nothing there pushes here.
 2. If Core changed, upload the new tarball to the private Azure Blob storage. The bundle pins the Core version it installs, so a Core change needs a new bundle.
-3. Bring the two JSON files here in a pull request, merge, tag, and attach the bundle and its `.sha256` to that tag's release.
-4. Run the runbook end to end from a non-Qumulo subscription before announcing the tag.
+3. Release as above: the two JSON files go in the pull request, and the bundle and its `.sha256` are the draft release's files.
 
 ## Withdrawing Spark
 
