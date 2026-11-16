@@ -3,8 +3,10 @@
 # - azuredeploy.json's bundleUrl is https://github.com/Qumulo/cnq-spark/releases/download/vX.Y.Z/spark-bundle-<commit>.tar.gz,
 #   and its bundleSha256 is 64 lowercase hex digits;
 # - README.md's Deploy to Azure button is what scripts/deploy-button.sh vX.Y.Z prints;
-# - RUNBOOK.md's TEMPLATE_URL, and every other link to this repository's files in README.md and RUNBOOK.md, names vX.Y.Z.
-# Run from the repository root: bash scripts/pin-check.sh
+# - RUNBOOK.md's TEMPLATE_URL, and every other raw link to this repository's files in README.md and RUNBOOK.md (what a
+#   deploy reads; the button's is URL-encoded), in any letter case, names vX.Y.Z.
+# Given a tag (the one about to be published), it also fails unless the pins name that tag.
+# Run from the repository root: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
 fail() { echo "pin-check: $*" >&2; exit 1; }
 
@@ -14,6 +16,9 @@ re='^https://github\.com/Qumulo/cnq-spark/releases/download/(v[0-9]+\.[0-9]+\.[0
 [[ $url =~ $re ]] ||
   fail "azuredeploy.json's bundleUrl is not https://github.com/Qumulo/cnq-spark/releases/download/vX.Y.Z/spark-bundle-<12 hex digits>.tar.gz: $url"
 tag=${BASH_REMATCH[1]}
+if [[ -n ${1:-} && $1 != "$tag" ]]; then
+  fail "the pins name $tag, not $1: azuredeploy.json's bundleUrl, README.md's button and RUNBOOK.md's TEMPLATE_URL must name the tag being published"
+fi
 [[ $sha =~ ^[0-9a-f]{64}$ ]] || fail "azuredeploy.json's bundleSha256 is not 64 lowercase hex digits"
 
 button=$(bash scripts/deploy-button.sh "$tag")
@@ -21,10 +26,9 @@ grep -qxF -- "$button" README.md || fail "README.md's Deploy to Azure button is 
 grep -qxF -- "TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/$tag/azuredeploy.json" RUNBOOK.md ||
   fail "RUNBOOK.md's TEMPLATE_URL is not https://raw.githubusercontent.com/Qumulo/cnq-spark/$tag/azuredeploy.json"
 
-# Every link to this repository's files, plain or URL-encoded as in the button, names the same version.
-links=$(grep -ohE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|raw\.githubusercontent\.com%2FQumulo%2Fcnq-spark%2F[^%[:space:]]+%2F' \
-  README.md RUNBOOK.md || true)
-others=$(grep -vxF -e "raw.githubusercontent.com/Qumulo/cnq-spark/$tag/" -e "raw.githubusercontent.com%2FQumulo%2Fcnq-spark%2F$tag%2F" \
-  <<<"$links" | sort -u || true)
+# Every raw link to this repository's files, plain or URL-encoded as in the button, names the same version.
+refs=$(grep -ohiE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|raw\.githubusercontent\.com%2FQumulo%2Fcnq-spark%2F[^%[:space:]]+%2F' \
+  README.md RUNBOOK.md | sed -E 's#%2[Ff]#/#g; s#/$##; s#.*/##' || true)
+others=$(grep -vxF -- "$tag" <<<"$refs" | sort -u || true)
 [[ -z $others ]] || fail "README.md or RUNBOOK.md links to this repository's files at another version: $(paste -sd' ' <<<"$others")"
 echo "pin-check: ok ($tag)"
