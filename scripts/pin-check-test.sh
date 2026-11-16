@@ -58,6 +58,19 @@ done
 out=$(cd "$tmp" && bash "$tmp/same/scripts/pin-check.sh" 2>&1); rc=$?
 check "it runs from another directory" '[[ $rc == 0 && $out == *"ok ($tag)"* ]]'
 
+# Once the pinned version's tag exists, the template and form must be that tag's: a change needs a new version.
+copy "$tmp/tagged"; cp "$root/createUiDefinition.json" "$tmp/tagged/"
+git -C "$tmp/tagged" init -q; git -C "$tmp/tagged" -c user.email=1+t@users.noreply.github.com -c user.name=t add -A
+git -C "$tmp/tagged" -c user.email=1+t@users.noreply.github.com -c user.name=t commit -qm release; git -C "$tmp/tagged" tag "$tag"
+run "$tmp/tagged"
+check "the template and form at the published tag pass" '[[ $rc == 0 ]]'
+jq '.metadata.changed = true' "$tmp/tagged/azuredeploy.json" > "$tmp/tagged/t.json" && mv "$tmp/tagged/t.json" "$tmp/tagged/azuredeploy.json"
+run "$tmp/tagged"
+check "a template changed after its version was published fails" '[[ $rc != 0 && $out == *azuredeploy.json* && $out == *"$tag"* ]]'
+git -C "$tmp/tagged" checkout -q -- azuredeploy.json; echo '{}' > "$tmp/tagged/createUiDefinition.json"
+run "$tmp/tagged"
+check "a form changed after its version was published fails" '[[ $rc != 0 && $out == *createUiDefinition.json* ]]'
+
 # A rollback reverts the release pull request: every pin back at the previous version together, which passes.
 copy "$tmp/rollback"; url=$(jq -r .parameters.bundleUrl.defaultValue "$tmp/rollback/azuredeploy.json")
 set_default "$tmp/rollback" bundleUrl "${url/\/download\/$tag\//\/download\/$other\/}"
