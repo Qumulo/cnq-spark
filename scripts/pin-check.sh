@@ -12,6 +12,7 @@
 # Given a tag (the one about to be published), it also fails unless the pins name that tag.
 # Run from any directory: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE # this repository's git, not a calling hook's
 cd "$(dirname "$0")/.."
 fail() { echo "pin-check: $*" >&2; exit 1; }
 
@@ -36,10 +37,12 @@ refs=$(grep -ohiE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|
   README.md RUNBOOK.md | sed -E 's#%2[Ff]#/#g; s#/$##; s#.*/##' || true)
 others=$(grep -vxF -- "$tag" <<<"$refs" | sort -u || true)
 [[ -z $others ]] || fail "README.md or RUNBOOK.md links to this repository's files at another version: $(paste -sd' ' - <<<"$others")"
+compared="not published yet, or its tag isn't in this clone"
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
   for f in azuredeploy.json createUiDefinition.json; do
-    git show "$tag:$f" 2>/dev/null | cmp -s - "$f" ||
+    git show "refs/tags/$tag:./$f" 2>/dev/null | cmp -s - "$f" ||
       fail "$f differs from $tag's, which the button deploys: a change to it needs a new version and new pins"
   done
+  compared="template and form match its tag"
 fi
-echo "pin-check: ok ($tag)"
+echo "pin-check: ok ($tag; $compared)"

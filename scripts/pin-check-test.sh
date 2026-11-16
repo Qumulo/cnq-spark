@@ -2,6 +2,7 @@
 # Tests pin-check.sh: each case copies this repository's README.md, RUNBOOK.md, azuredeploy.json and the two scripts
 # into a scratch directory, changes one pin, and runs the check there. Run: bash scripts/pin-check-test.sh
 set -uo pipefail
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE # scratch repositories only, whatever the caller's git environment
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/.." && pwd)
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
@@ -26,7 +27,7 @@ tag=$(jq -r .parameters.bundleUrl.defaultValue "$root/azuredeploy.json" | sed -E
 other=v0.0.1
 
 copy "$tmp/same"; run "$tmp/same"
-check "this repository's pins agree" '[[ $rc == 0 && $out == *"ok ($tag)"* ]]'
+check "this repository's pins agree" '[[ $rc == 0 && $out == *"ok ($tag;"* ]]'
 
 copy "$tmp/button"; replace "$tmp/button/README.md" "s#cnq-spark%2F$tag%2F#cnq-spark%2F$other%2F#g"; run "$tmp/button"
 check "a README button at another version fails" '[[ $rc != 0 && $out == *README.md* ]]'
@@ -56,14 +57,15 @@ for link in "https://portal.azure.com/x/raw.githubusercontent.com%2FQumulo%2Fcnq
 done
 
 out=$(cd "$tmp" && bash "$tmp/same/scripts/pin-check.sh" 2>&1); rc=$?
-check "it runs from another directory" '[[ $rc == 0 && $out == *"ok ($tag)"* ]]'
+check "it runs from another directory" '[[ $rc == 0 && $out == *"ok ($tag;"* ]]'
 
 # Once the pinned version's tag exists, the template and form must be that tag's: a change needs a new version.
 copy "$tmp/tagged"; cp "$root/createUiDefinition.json" "$tmp/tagged/"
-git -C "$tmp/tagged" init -q; git -C "$tmp/tagged" -c user.email=1+t@users.noreply.github.com -c user.name=t add -A
-git -C "$tmp/tagged" -c user.email=1+t@users.noreply.github.com -c user.name=t commit -qm release; git -C "$tmp/tagged" tag "$tag"
+git -C "$tmp/tagged" init -q; g=(git -C "$tmp/tagged" -c user.email=1+t@users.noreply.github.com -c user.name=t -c commit.gpgsign=false -c tag.gpgsign=false)
+"${g[@]}" add -A
+"${g[@]}" commit -qm release; "${g[@]}" tag "$tag"
 run "$tmp/tagged"
-check "the template and form at the published tag pass" '[[ $rc == 0 ]]'
+check "the template and form at the published tag pass, and say so" '[[ $rc == 0 && $out == *"match its tag"* ]]'
 jq '.metadata.changed = true' "$tmp/tagged/azuredeploy.json" > "$tmp/tagged/t.json" && mv "$tmp/tagged/t.json" "$tmp/tagged/azuredeploy.json"
 run "$tmp/tagged"
 check "a template changed after its version was published fails" '[[ $rc != 0 && $out == *azuredeploy.json* && $out == *"$tag"* ]]'
@@ -77,7 +79,7 @@ set_default "$tmp/rollback" bundleUrl "${url/\/download\/$tag\//\/download\/$oth
 replace "$tmp/rollback/README.md" "s#cnq-spark%2F$tag%2F#cnq-spark%2F$other%2F#g"
 replace "$tmp/rollback/RUNBOOK.md" "s#cnq-spark/$tag/azuredeploy.json#cnq-spark/$other/azuredeploy.json#"
 run "$tmp/rollback"
-check "every pin back at the previous version passes (a rollback)" '[[ $rc == 0 && $out == *"ok ($other)"* ]]'
+check "every pin back at the previous version passes (a rollback)" '[[ $rc == 0 && $out == *"ok ($other;"* ]]'
 
 # Before publishing, the check is given the tag about to be made.
 run "$tmp/same" "$tag"
