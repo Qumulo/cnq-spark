@@ -320,5 +320,5 @@ Stop and show the error. Common causes: the subnet is in a different subscriptio
 Things the person can check on the VM, over SSH:
 
 - `sudo spark web status` shows whether the web UI runs, its ports and its certificate fingerprint. Its logs: `sudo journalctl -u spark-web -u spark-web-helper`.
-- If the subnet had no outbound internet access when the VM first booted, the install stops within a few minutes and `/var/log/spark-install.log` says why. Once outbound access works, `sudo /usr/local/sbin/spark-bootstrap` runs the install again (the SSH login message names it too).
+- If the subnet had no outbound internet access when the VM first booted, the install stops within a few minutes and `/var/log/spark-install.log` says why. Once outbound access works, `sudo /usr/local/sbin/spark-bootstrap` runs the install again (the SSH login message names it too). It prints nothing and returns when the install ends, about 15 minutes later, so keep the session open; `sudo spark` or `/var/log/spark-install.log` in a second session shows progress.
 - If the admin password never reached the VM, first boot stops after 30 minutes and says why. Once the cause is fixed, `sudo systemctl restart spark-first-boot` starts it again.
