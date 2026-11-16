@@ -35,7 +35,7 @@ Regions: any Azure region where the size you choose is available to your subscri
 
 ## Deploy
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.0%2Fazuredeploy.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.0%2FcreateUiDefinition.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.1%2Fazuredeploy.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2FQumulo%2Fcnq-spark%2Fv0.11.1%2FcreateUiDefinition.json)
 
 The portal asks for your subscription, resource group and region, then six values:
 
@@ -80,6 +80,11 @@ Azure's metadata service is reachable from inside the VM with no setup. Subnets 
 The deployment's output `webUrl` is the web UI's address, `https://<the VM's private IP>/`. Open it from a machine inside your network. While the install is still running, the page shows its progress without a sign-in. Then sign in as `admin` with the password you entered in the form, and the first run opens: Password (optional), Shares, Users, Directory, Finish.
 
 The web UI listens on port 443, and port 80 only redirects to it, on the VM's private IP address. The certificate is self-signed, so the browser warns the first time. To check it, compare its fingerprint with the one in the SSH login message or in `sudo spark web status`. The web UI is on by default. Anyone your network lets reach the VM can reach its sign-in page, so limit that with your own network rules, or turn it off with `sudo spark web off` (it stays off after a restart; `sudo spark web on` turns it back on).
+
+To reach the web UI through a port forward, forward a local port to the VM's port 443 and open `https://localhost:<that port>/`. For example, with an Azure Bastion tunnel (Bastion Standard with native client support): `az network bastion tunnel --name <bastion> --resource-group <its resource group> --target-resource-id <the VM's resource ID> --resource-port 443 --port 9443`, then `https://localhost:9443/`. Or over SSH through a machine in the network: `ssh -L 9443:<spark-ip>:443 <user>@<that machine>`. Browsers don't keep cookies apart by port, so:
+
+- With tunnels to two Sparks at once, use a different loopback name for each: `localhost`, `127.0.0.1` or `[::1]` (`ssh -L` listens on all three).
+- While you're signed in, don't browse other local services on the same name: the browser sends them Spark's session cookie.
 
 Or connect over SSH as `azureuser` and run `sudo spark`: the same progress and first run, in a terminal. Then check that Spark is ready:
 
