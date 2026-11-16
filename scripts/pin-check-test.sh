@@ -12,9 +12,12 @@ copy() { # copy <dir>: the files the check reads, as they are in this repository
   cp "$root/README.md" "$root/RUNBOOK.md" "$root/azuredeploy.json" "$1/"
   cp "$here/pin-check.sh" "$here/deploy-button.sh" "$1/scripts/"
 }
-run() { out=$(cd "$1" && bash scripts/pin-check.sh 2>&1); rc=$?; }
+run() { local d=$1; shift; out=$(cd "$d" && bash scripts/pin-check.sh "$@" 2>&1); rc=$?; }
 check() { # check <name> <condition>
   if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; printf '%s\n' "$out" | sed 's/^/       /'; fails=1; fi
+}
+replace() { # replace <file> <sed expression>: portable, as BSD sed's -i takes a suffix
+  sed -E "$2" "$1" > "$1.new" && mv "$1.new" "$1"
 }
 set_default() { # set_default <dir> <parameter> <value>: azuredeploy.json with that parameter's default changed
   jq --arg p "$2" --arg v "$3" '.parameters[$p].defaultValue = $v' "$1/azuredeploy.json" > "$1/t.json" && mv "$1/t.json" "$1/azuredeploy.json"
@@ -25,10 +28,10 @@ other=v0.0.1
 copy "$tmp/same"; run "$tmp/same"
 check "this repository's pins agree" '[[ $rc == 0 && $out == *"ok ($tag)"* ]]'
 
-copy "$tmp/button"; sed -i "s#cnq-spark%2F$tag%2F#cnq-spark%2F$other%2F#g" "$tmp/button/README.md"; run "$tmp/button"
+copy "$tmp/button"; replace "$tmp/button/README.md" "s#cnq-spark%2F$tag%2F#cnq-spark%2F$other%2F#g"; run "$tmp/button"
 check "a README button at another version fails" '[[ $rc != 0 && $out == *README.md* ]]'
 
-copy "$tmp/runbook"; sed -i "s#cnq-spark/$tag/azuredeploy.json#cnq-spark/$other/azuredeploy.json#" "$tmp/runbook/RUNBOOK.md"; run "$tmp/runbook"
+copy "$tmp/runbook"; replace "$tmp/runbook/RUNBOOK.md" "s#cnq-spark/$tag/azuredeploy.json#cnq-spark/$other/azuredeploy.json#"; run "$tmp/runbook"
 check "a RUNBOOK TEMPLATE_URL at another version fails" '[[ $rc != 0 && $out == *RUNBOOK.md* ]]'
 
 copy "$tmp/stray"; printf '\nOlder: https://raw.githubusercontent.com/Qumulo/cnq-spark/%s/azuredeploy.json\n' "$other" >> "$tmp/stray/RUNBOOK.md"
@@ -37,7 +40,25 @@ check "another link to this repository's files at another version fails" '[[ $rc
 
 copy "$tmp/url-tag"; url=$(jq -r .parameters.bundleUrl.defaultValue "$tmp/url-tag/azuredeploy.json")
 set_default "$tmp/url-tag" bundleUrl "${url/\/download\/$tag\//\/download\/$other\/}"; run "$tmp/url-tag"
-check "a bundleUrl at another version fails" '[[ $rc != 0 ]]'
+check "a bundleUrl at another version fails" '[[ $rc != 0 && $out == *README.md* ]]'
+
+copy "$tmp/upper"; printf '\nOlder: https://raw.githubusercontent.com/QUMULO/cnq-spark/%s/azuredeploy.json\n' "$other" >> "$tmp/upper/RUNBOOK.md"
+run "$tmp/upper"
+check "a link in other letter case at another version fails" '[[ $rc != 0 && $out == *"$other"* ]]'
+
+# A rollback reverts the release pull request: every pin back at the previous version together, which passes.
+copy "$tmp/rollback"; url=$(jq -r .parameters.bundleUrl.defaultValue "$tmp/rollback/azuredeploy.json")
+set_default "$tmp/rollback" bundleUrl "${url/\/download\/$tag\//\/download\/$other\/}"
+replace "$tmp/rollback/README.md" "s#cnq-spark%2F$tag%2F#cnq-spark%2F$other%2F#g"
+replace "$tmp/rollback/RUNBOOK.md" "s#cnq-spark/$tag/azuredeploy.json#cnq-spark/$other/azuredeploy.json#"
+run "$tmp/rollback"
+check "every pin back at the previous version passes (a rollback)" '[[ $rc == 0 && $out == *"ok ($other)"* ]]'
+
+# Before publishing, the check is given the tag about to be made.
+run "$tmp/same" "$tag"
+check "the tag being published, when the pins name it, passes" '[[ $rc == 0 ]]'
+run "$tmp/same" "$other"
+check "a tag the pins don't name fails" '[[ $rc != 0 && $out == *"$other"* ]]'
 
 copy "$tmp/url-host"; set_default "$tmp/url-host" bundleUrl "https://example.com/download/$tag/spark-bundle-0123456789ab.tar.gz"
 run "$tmp/url-host"
