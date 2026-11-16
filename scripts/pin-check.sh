@@ -4,11 +4,13 @@
 #   and its bundleSha256 is 64 lowercase hex digits;
 # - README.md's Deploy to Azure button is what scripts/deploy-button.sh vX.Y.Z prints;
 # - RUNBOOK.md's TEMPLATE_URL, and every other link to this repository's files at a version in README.md and RUNBOOK.md
-#   (raw.githubusercontent.com, URL-encoded as in the button or not, github.com/.../raw/ and .../releases/download/),
-#   in any letter case, names vX.Y.Z.
+#   names vX.Y.Z, in any letter case. These are the forms checked: raw.githubusercontent.com (plain, or URL-encoded as in
+#   the button), github.com/Qumulo/cnq-spark/raw/ and github.com/Qumulo/cnq-spark/releases/download/. Other forms
+#   (blob, tree, releases/tag) are not checked.
 # Given a tag (the one about to be published), it also fails unless the pins name that tag.
 # Run from the repository root: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
+cd "$(dirname "$0")/.."
 fail() { echo "pin-check: $*" >&2; exit 1; }
 
 url=$(jq -r '.parameters.bundleUrl.defaultValue // ""' azuredeploy.json)
