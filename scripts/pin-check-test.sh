@@ -46,6 +46,15 @@ copy "$tmp/upper"; printf '\nOlder: https://raw.githubusercontent.com/QUMULO/cnq
 run "$tmp/upper"
 check "a link in other letter case at another version fails" '[[ $rc != 0 && $out == *"$other"* ]]'
 
+for link in "https://portal.azure.com/x/raw.githubusercontent.com%2FQumulo%2Fcnq-spark%2F$other%2Fazuredeploy.json" \
+  "https://portal.azure.com/x/raw.githubusercontent.com%2fqumulo%2fcnq-spark%2f$other%2fazuredeploy.json" \
+  "https://github.com/Qumulo/cnq-spark/raw/$other/azuredeploy.json" \
+  "https://github.com/Qumulo/cnq-spark/releases/download/$other/spark-bundle-0123456789ab.tar.gz"; do
+  copy "$tmp/link"; printf '\nOlder: %s\n' "$link" >> "$tmp/link/README.md"; run "$tmp/link"
+  check "a link at another version fails: ${link:0:60}" '[[ $rc != 0 && $out == *"$other"* ]]'
+  rm -rf "$tmp/link"
+done
+
 # A rollback reverts the release pull request: every pin back at the previous version together, which passes.
 copy "$tmp/rollback"; url=$(jq -r .parameters.bundleUrl.defaultValue "$tmp/rollback/azuredeploy.json")
 set_default "$tmp/rollback" bundleUrl "${url/\/download\/$tag\//\/download\/$other\/}"
