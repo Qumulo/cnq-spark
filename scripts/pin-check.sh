@@ -7,6 +7,8 @@
 #   names vX.Y.Z, in any letter case. These are the forms checked: raw.githubusercontent.com (plain, or URL-encoded as in
 #   the button), github.com/Qumulo/cnq-spark/raw/ and github.com/Qumulo/cnq-spark/releases/download/. Other forms
 #   (blob, tree, releases/tag) are not checked.
+# Once vX.Y.Z's tag exists, azuredeploy.json and createUiDefinition.json must be that tag's: the button deploys the
+# tag's files, so a change to either needs a new version and new pins.
 # Given a tag (the one about to be published), it also fails unless the pins name that tag.
 # Run from any directory: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
@@ -34,4 +36,10 @@ refs=$(grep -ohiE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|
   README.md RUNBOOK.md | sed -E 's#%2[Ff]#/#g; s#/$##; s#.*/##' || true)
 others=$(grep -vxF -- "$tag" <<<"$refs" | sort -u || true)
 [[ -z $others ]] || fail "README.md or RUNBOOK.md links to this repository's files at another version: $(paste -sd' ' - <<<"$others")"
+if git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+  for f in azuredeploy.json createUiDefinition.json; do
+    git show "$tag:$f" 2>/dev/null | cmp -s - "$f" ||
+      fail "$f differs from $tag's, which the button deploys: a change to it needs a new version and new pins"
+  done
+fi
 echo "pin-check: ok ($tag)"
