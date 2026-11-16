@@ -73,7 +73,7 @@ The VM sets itself up on first boot. You don't sign in to it for this.
 | `spark-register.sedemo.qumulo.com` | HTTPS 443 | Qumulo's registration service |
 | `qumulosparkcore.blob.core.windows.net` | HTTPS 443 | The Qumulo Core download |
 
-Azure's metadata service is reachable from inside the VM with no setup. Subnets in new virtual networks are private by default, so you usually have to add outbound access yourself. Microsoft recommends a [NAT gateway](https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access); a firewall with a route also works.
+Azure's metadata service is reachable from inside the VM with no setup. Subnets in new virtual networks are private by default, so you usually have to add outbound access yourself. Microsoft recommends a [NAT gateway](https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access); a firewall with a route also works. If the VM booted before outbound access worked, its install stops within a few minutes and `/var/log/spark-install.log` says why: once it works, connect over SSH and run `sudo /usr/local/sbin/spark-bootstrap` (the login message names it).
 
 ## After you deploy
 

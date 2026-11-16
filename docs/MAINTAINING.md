@@ -27,7 +27,7 @@ A release is one pull request and one release, so the files at the tag are the o
 
 The button can only deploy a published release, so the gate before publishing is in the internal repository: the same template, form and bundle are deployed end to end from a private copy before the pull request. If a published release is broken, a pull request that points the button and `RUNBOOK.md` back at the previous tag withdraws it.
 
-Releases are immutable: once published, a release's tag and files can't change, and its tag name can never be used again, even after the release is deleted. A mistake needs a new version.
+Releases are immutable: this repository has GitHub's immutable releases setting on, so once published, a release's tag and files can't change, and its tag name can never be used again, even after the release is deleted. A new copy of this repository needs the setting on before its first release. A mistake needs a new version.
 
 The Deploy to Azure button and the runbook point at a tag, not at `main`. People who deployed an earlier tag are not affected by a later change.
 
