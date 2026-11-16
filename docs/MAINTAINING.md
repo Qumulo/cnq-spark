@@ -21,9 +21,11 @@ The internal repository is authoritative. Changes reach this repository by manua
 A release is one pull request and one release, so the files at the tag are the ones the button and the runbook point at.
 
 1. Open one pull request, reviewed by a code owner, with the change and the version pin: the output of `scripts/deploy-button.sh vX.Y.Z` in `README.md`, and `RUNBOOK.md`'s `TEMPLATE_URL` at `vX.Y.Z`. The pinned links answer 404 until step 3.
-2. Before it merges, create the release as a draft, with any files it attaches: `gh release create vX.Y.Z --draft --prerelease --target main --title vX.Y.Z --notes-file <notes> <files>`. Check each file's digest with `gh release view vX.Y.Z --json assets`.
+2. Before it merges, create the release as a draft, with any files it attaches: `gh release create vX.Y.Z --draft --prerelease --target main --title vX.Y.Z --notes-file <notes> <files>`. Check each file's digest with `gh release view vX.Y.Z --json assets`. For a Spark release, the bundle's digest must equal `bundleSha256` in the pull request's `azuredeploy.json`, and its name must be the last part of `bundleUrl`: the VM checks both, so a mismatch fails every deploy.
 3. Merge the pull request through the merge queue, then publish the draft at once on the merge commit: `gh release edit vX.Y.Z --target <merge commit> --draft=false`. Publishing creates the tag. Merge nothing else in between: until then, the button on `main` answers 404.
 4. Check that the button opens the form and that the release's download matches its `.sha256`. Then deploy end to end from a subscription that is not Qumulo's, using `RUNBOOK.md`, before announcing the tag.
+
+The button can only deploy a published release, so the gate before publishing is in the internal repository: the same template, form and bundle are deployed end to end from a private copy before the pull request. If a published release is broken, a pull request that points the button and `RUNBOOK.md` back at the previous tag withdraws it.
 
 Releases are immutable: once published, a release's tag and files can't change, and its tag name can never be used again, even after the release is deleted. A mistake needs a new version.
 

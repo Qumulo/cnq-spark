@@ -81,9 +81,9 @@ The deployment's output `webUrl` is the web UI's address, `https://<the VM's pri
 
 The web UI listens on port 443, and port 80 only redirects to it, on the VM's private IP address. The certificate is self-signed, so the browser warns the first time. To check it, compare its fingerprint with the one in the SSH login message or in `sudo spark web status`. The web UI is on by default. Anyone your network lets reach the VM can reach its sign-in page, so limit that with your own network rules, or turn it off with `sudo spark web off` (it stays off after a restart; `sudo spark web on` turns it back on).
 
-To reach the web UI through a port forward, forward a local port to the VM's port 443 and open `https://localhost:<that port>/`. For example, with an Azure Bastion tunnel (Bastion Standard with native client support): `az network bastion tunnel --name <bastion> --resource-group <its resource group> --target-resource-id <the VM's resource ID> --resource-port 443 --port 9443`, then `https://localhost:9443/`. Or over SSH through a machine in the network: `ssh -L 9443:<spark-ip>:443 <user>@<that machine>`. Browsers don't keep cookies apart by port, so:
+To reach the web UI through a port forward, forward a local port to the VM's port 443 and open `https://localhost:<that port>/`. For example, with an Azure Bastion tunnel (Bastion Standard or Premium, with native client support): `az network bastion tunnel --name <bastion> --resource-group <its resource group> --target-resource-id <the VM's resource ID> --resource-port 443 --port 9443`, then `https://localhost:9443/`. Or over SSH through a machine in the network: `ssh -L 9443:<spark-ip>:443 <user>@<that machine>`. Browsers don't keep cookies apart by port, so:
 
-- With tunnels to two Sparks at once, use a different loopback name for each: `localhost`, `127.0.0.1` or `[::1]` (`ssh -L` listens on all three).
+- With tunnels to two Sparks at once, use a different loopback name for each: `localhost` or `127.0.0.1` (a Bastion tunnel listens on IPv4 only), or `[::1]` too with `ssh -L`.
 - While you're signed in, don't browse other local services on the same name: the browser sends them Spark's session cookie.
 
 Or connect over SSH as `azureuser` and run `sudo spark`: the same progress and first run, in a terminal. Then check that Spark is ready:
