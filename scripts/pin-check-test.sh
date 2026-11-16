@@ -55,6 +55,9 @@ for link in "https://portal.azure.com/x/raw.githubusercontent.com%2FQumulo%2Fcnq
   rm -rf "$tmp/link"
 done
 
+out=$(cd "$tmp" && bash "$tmp/same/scripts/pin-check.sh" 2>&1); rc=$?
+check "it runs from another directory" '[[ $rc == 0 && $out == *"ok ($tag)"* ]]'
+
 # A rollback reverts the release pull request: every pin back at the previous version together, which passes.
 copy "$tmp/rollback"; url=$(jq -r .parameters.bundleUrl.defaultValue "$tmp/rollback/azuredeploy.json")
 set_default "$tmp/rollback" bundleUrl "${url/\/download\/$tag\//\/download\/$other\/}"

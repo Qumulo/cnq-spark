@@ -8,7 +8,7 @@
 #   the button), github.com/Qumulo/cnq-spark/raw/ and github.com/Qumulo/cnq-spark/releases/download/. Other forms
 #   (blob, tree, releases/tag) are not checked.
 # Given a tag (the one about to be published), it also fails unless the pins name that tag.
-# Run from the repository root: bash scripts/pin-check.sh [vX.Y.Z]
+# Run from any directory: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "pin-check: $*" >&2; exit 1; }
