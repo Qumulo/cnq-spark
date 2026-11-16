@@ -3,8 +3,9 @@
 # - azuredeploy.json's bundleUrl is https://github.com/Qumulo/cnq-spark/releases/download/vX.Y.Z/spark-bundle-<commit>.tar.gz,
 #   and its bundleSha256 is 64 lowercase hex digits;
 # - README.md's Deploy to Azure button is what scripts/deploy-button.sh vX.Y.Z prints;
-# - RUNBOOK.md's TEMPLATE_URL, and every other raw link to this repository's files in README.md and RUNBOOK.md (what a
-#   deploy reads; the button's is URL-encoded), in any letter case, names vX.Y.Z.
+# - RUNBOOK.md's TEMPLATE_URL, and every other link to this repository's files at a version in README.md and RUNBOOK.md
+#   (raw.githubusercontent.com, URL-encoded as in the button or not, github.com/.../raw/ and .../releases/download/),
+#   in any letter case, names vX.Y.Z.
 # Given a tag (the one about to be published), it also fails unless the pins name that tag.
 # Run from the repository root: bash scripts/pin-check.sh [vX.Y.Z]
 set -euo pipefail
@@ -26,9 +27,9 @@ grep -qxF -- "$button" README.md || fail "README.md's Deploy to Azure button is 
 grep -qxF -- "TEMPLATE_URL=https://raw.githubusercontent.com/Qumulo/cnq-spark/$tag/azuredeploy.json" RUNBOOK.md ||
   fail "RUNBOOK.md's TEMPLATE_URL is not https://raw.githubusercontent.com/Qumulo/cnq-spark/$tag/azuredeploy.json"
 
-# Every raw link to this repository's files, plain or URL-encoded as in the button, names the same version.
-refs=$(grep -ohiE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|raw\.githubusercontent\.com%2FQumulo%2Fcnq-spark%2F[^%[:space:]]+%2F' \
+# Every link to this repository's files at a version names the same version.
+refs=$(grep -ohiE 'raw\.githubusercontent\.com/Qumulo/cnq-spark/[^/[:space:]]+/|raw\.githubusercontent\.com%2FQumulo%2Fcnq-spark%2F[^%[:space:]]+%2F|github\.com/Qumulo/cnq-spark/(raw|releases/download)/[^/[:space:]]+/' \
   README.md RUNBOOK.md | sed -E 's#%2[Ff]#/#g; s#/$##; s#.*/##' || true)
 others=$(grep -vxF -- "$tag" <<<"$refs" | sort -u || true)
-[[ -z $others ]] || fail "README.md or RUNBOOK.md links to this repository's files at another version: $(paste -sd' ' <<<"$others")"
+[[ -z $others ]] || fail "README.md or RUNBOOK.md links to this repository's files at another version: $(paste -sd' ' - <<<"$others")"
 echo "pin-check: ok ($tag)"
